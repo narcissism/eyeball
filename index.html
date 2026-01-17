@@ -61,7 +61,6 @@ const vessels = Array.from({length:28}, ()=>({
 
 /* ---------- TEARS ---------- */
 const tears = [];
-const streaks = [];
 let puddleHeight = 0;
 
 /* ---------- DRAW ---------- */
@@ -76,15 +75,15 @@ function draw(){
   const dx = mouse.x - cx;
   const dy = mouse.y - cy;
 
-  const tx = Math.max(-1, Math.min(1, dx / 300));
-  const ty = Math.max(-1, Math.min(1, dy / 300));
+  const tx = Math.max(-1, Math.min(1, dx / 260));
+  const ty = Math.max(-1, Math.min(1, dy / 260));
 
-  eye.rotX += (tx - eye.rotX) * 0.08;
-  eye.rotY += (ty - eye.rotY) * 0.08;
+  eye.rotX += (tx - eye.rotX) * 0.07;
+  eye.rotY += (ty - eye.rotY) * 0.07;
 
   /* ---------- PUPIL DILATION ---------- */
   const dist = Math.hypot(dx, dy);
-  const norm = Math.min(dist / 400, 1);
+  const norm = Math.min(dist / 420, 1);
   const targetPupil =
     eye.maxPupil - norm * (eye.maxPupil - eye.minPupil);
   eye.pupilRadius += (targetPupil - eye.pupilRadius) * 0.08;
@@ -93,8 +92,8 @@ function draw(){
   ctx.translate(cx, cy);
 
   /* ---------- SPHERE ---------- */
-  const lightX = -eye.rotX * eye.radius * 0.4;
-  const lightY = -eye.rotY * eye.radius * 0.4;
+  const lightX = -eye.rotX * eye.radius * 0.45;
+  const lightY = -eye.rotY * eye.radius * 0.45;
 
   const scleraGrad = ctx.createRadialGradient(
     lightX, lightY, eye.radius * 0.2,
@@ -108,12 +107,12 @@ function draw(){
   ctx.arc(0,0,eye.radius,0,Math.PI*2);
   ctx.fill();
 
-  /* ---------- VEINS (PULSE) ---------- */
+  /* ---------- VEINS ---------- */
   vessels.forEach(v=>{
     v.phase += 0.015;
-    const pulse = Math.sin(v.phase + time) * 0.4 + 1;
+    const pulse = Math.sin(v.phase + time) * 0.35 + 1;
 
-    ctx.strokeStyle = `rgba(170,60,60,${0.22 * pulse})`;
+    ctx.strokeStyle = `rgba(170,60,60,${0.2 * pulse})`;
     ctx.lineWidth = pulse;
 
     let a = v.baseAngle + eye.rotX * 1.2;
@@ -130,39 +129,60 @@ function draw(){
   });
 
   /* ---------- SPHERICAL IRIS ROLL ---------- */
-  const rollX = eye.rotX * 30;
-  const rollY = eye.rotY * 30;
+  const maxRoll = eye.radius - eye.irisRadius - 6;
+  const rollX = eye.rotX * maxRoll;
+  const rollY = eye.rotY * maxRoll;
   const rollDist = Math.hypot(rollX, rollY);
-  const rollNorm = Math.min(rollDist / (eye.radius * 0.55), 1);
+  const rollNorm = Math.min(rollDist / maxRoll, 1);
 
   const visibleIrisRadius =
-    eye.irisRadius * (1 - rollNorm * 0.25);
+    eye.irisRadius * (1 - rollNorm * 0.18);
+
+  /* ---------- IRIS TEXTURE ---------- */
+  ctx.save();
+  ctx.translate(rollX, rollY);
 
   const irisGrad = ctx.createRadialGradient(
-    rollX - 8, rollY - 8, 6,
-    rollX, rollY, visibleIrisRadius
+    -10, -10, 6,
+    0,0, visibleIrisRadius
   );
-  irisGrad.addColorStop(0,"#3b2a14");
-  irisGrad.addColorStop(0.45,"#6f4e2c");
-  irisGrad.addColorStop(0.8,"#9b7b3c");
-  irisGrad.addColorStop(1,"#1d1208");
+  irisGrad.addColorStop(0,"#3a2715");
+  irisGrad.addColorStop(0.45,"#6e4c2b");
+  irisGrad.addColorStop(0.8,"#9c7a3c");
+  irisGrad.addColorStop(1,"#1c1208");
 
   ctx.fillStyle = irisGrad;
   ctx.beginPath();
-  ctx.arc(rollX, rollY, visibleIrisRadius, 0, Math.PI*2);
+  ctx.arc(0,0,visibleIrisRadius,0,Math.PI*2);
   ctx.fill();
 
-  /* Iris shadow (occlusion cue) */
-  ctx.fillStyle = `rgba(0,0,0,${rollNorm * 0.25})`;
+  /* Iris fibers (rotating subtly) */
+  ctx.strokeStyle = "rgba(0,0,0,0.25)";
+  const fiberSpin = time * 0.15 + eye.rotX * 0.6;
+  for(let i=0;i<60;i++){
+    const a = (i/60)*Math.PI*2 + fiberSpin;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a)*6, Math.sin(a)*6);
+    ctx.lineTo(
+      Math.cos(a)*visibleIrisRadius,
+      Math.sin(a)*visibleIrisRadius
+    );
+    ctx.stroke();
+  }
+
+  /* Edge darkening (spherical cue) */
+  ctx.fillStyle = `rgba(0,0,0,${rollNorm * 0.28})`;
   ctx.beginPath();
-  ctx.arc(rollX, rollY, visibleIrisRadius, 0, Math.PI*2);
+  ctx.arc(0,0,visibleIrisRadius,0,Math.PI*2);
   ctx.fill();
 
   /* ---------- PUPIL ---------- */
   ctx.fillStyle = "#000";
   ctx.beginPath();
-  ctx.arc(rollX, rollY, eye.pupilRadius * (1 - rollNorm * 0.2), 0, Math.PI*2);
+  ctx.arc(0,0,eye.pupilRadius * (1 - rollNorm * 0.15),0,Math.PI*2);
   ctx.fill();
+
+  ctx.restore();
 
   /* ---------- HIGHLIGHT ---------- */
   ctx.fillStyle = "rgba(255,255,255,0.6)";
@@ -175,47 +195,41 @@ function draw(){
   /* ---------- TEARS ---------- */
   const elapsed = (performance.now() - startTime) / 1000;
 
-  if(elapsed > 15 && Math.random() < 0.02){
+  if(elapsed > 15 && Math.random() < 0.008){
     tears.push({
-      x: cx + eye.rotX * 35 + (Math.random()-0.5)*10,
-      y: cy + eye.radius * 0.95,
-      vy: 0.3,
-      life: 1
+      x: cx + eye.rotX * 40 + (Math.random()-0.5)*10,
+      y: cy + eye.radius * 0.9,
+      vy: 0.05,
+      r: 6 + Math.random() * 3,
+      attached: true
     });
   }
 
-  ctx.strokeStyle = "rgba(180,220,255,0.35)";
-  ctx.lineWidth = 2;
-
+  ctx.fillStyle = "rgba(180,220,255,0.65)";
   tears.forEach(t=>{
-    t.y += t.vy;
-    t.vy += 0.015;
-    t.life -= 0.002;
-
-    streaks.push({
-      x: t.x,
-      y1: t.y - 12,
-      y2: t.y
-    });
-
-    if(t.y > h - puddleHeight - 5){
-      puddleHeight += 0.03;
-      t.life = 0;
+    if(t.attached){
+      t.y += t.vy;
+      if(t.y > cy + eye.radius + 8){
+        t.attached = false;
+        t.vy = 0.25;
+      }
+    } else {
+      t.y += t.vy;
+      t.vy += 0.01;
+      if(t.y > h - puddleHeight - 6){
+        puddleHeight += 0.015;
+        t.y = h - puddleHeight - 6;
+      }
     }
-  });
 
-  tears.filter(t=>t.life>0);
-
-  streaks.forEach(s=>{
     ctx.beginPath();
-    ctx.moveTo(s.x, s.y1);
-    ctx.lineTo(s.x, s.y2);
-    ctx.stroke();
+    ctx.ellipse(t.x, t.y, t.r, t.r * 1.4, 0, 0, Math.PI*2);
+    ctx.fill();
   });
 
   /* ---------- PUDDLE ---------- */
   if(puddleHeight > 0){
-    ctx.fillStyle = "rgba(140,180,220,0.45)";
+    ctx.fillStyle = "rgba(140,180,220,0.4)";
     ctx.fillRect(0, h - puddleHeight, w, puddleHeight);
   }
 
