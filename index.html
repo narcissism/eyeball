@@ -42,8 +42,8 @@ let time = 0;
 
 /* ---------- EYE ---------- */
 const eye = {
-  x: () => w/2,
-  y: () => h/2,
+  x: w/2,
+  y: h/2,
   radius: 120,
   irisRadius: 45,
   pupilRadius: 18,
@@ -61,16 +61,17 @@ const vessels = Array.from({length:28}, ()=>({
   phase: Math.random() * Math.PI * 2
 }));
 
-/* ---------- TEARS ---------- */
+/* ---------- TEARS & SPLASH ---------- */
 const tears = [];
-const splashes = [];
+const splashParticles = [];
+const ripples = [];
 
-/* ---------- DRAW TEARDROP ---------- */
+/* ---------- TEARDROP SHAPE ---------- */
 function drawTear(x, y, r){
   ctx.beginPath();
-  ctx.moveTo(x, y - r);
-  ctx.quadraticCurveTo(x - r, y, x, y + r * 1.6);
-  ctx.quadraticCurveTo(x + r, y, x, y - r);
+  ctx.moveTo(x, y - r * 1.2);                // pointed top
+  ctx.quadraticCurveTo(x - r * 0.6, y, x, y + r * 1.6);
+  ctx.quadraticCurveTo(x + r * 0.6, y, x, y - r * 1.2);
   ctx.closePath();
   ctx.fill();
 }
@@ -80,28 +81,26 @@ function draw(){
   ctx.clearRect(0,0,w,h);
   time += 0.02;
 
-  const cx = eye.x();
-  const cy = eye.y();
+  /* ---------- EYE TRANSLATION (FOLLOW MOUSE) ---------- */
+  const tx = mouse.x - w/2;
+  const ty = mouse.y - h/2;
 
-  /* ---------- LOOK ROTATION ---------- */
-  const dx = mouse.x - cx;
-  const dy = mouse.y - cy;
+  eye.x += (w/2 + tx * 0.12 - eye.x) * 0.05;
+  eye.y += (h/2 + ty * 0.12 - eye.y) * 0.05;
 
-  const tx = Math.max(-1, Math.min(1, dx / 260));
-  const ty = Math.max(-1, Math.min(1, dy / 260));
+  /* ---------- EYE ROTATION ---------- */
+  eye.rotX += ((tx / 260) - eye.rotX) * 0.08;
+  eye.rotY += ((ty / 260) - eye.rotY) * 0.08;
 
-  eye.rotX += (tx - eye.rotX) * 0.08;
-  eye.rotY += (ty - eye.rotY) * 0.08;
-
-  /* ---------- PUPIL DILATION ---------- */
-  const dist = Math.hypot(dx, dy);
+  /* ---------- PUPIL ---------- */
+  const dist = Math.hypot(tx, ty);
   const norm = Math.min(dist / 420, 1);
   const targetPupil =
     eye.maxPupil - norm * (eye.maxPupil - eye.minPupil);
   eye.pupilRadius += (targetPupil - eye.pupilRadius) * 0.08;
 
   ctx.save();
-  ctx.translate(cx, cy);
+  ctx.translate(eye.x, eye.y);
 
   /* ---------- SPHERE ---------- */
   const lightX = -eye.rotX * eye.radius * 0.45;
@@ -157,7 +156,6 @@ function draw(){
   ctx.arc(0,0,eye.irisRadius,0,Math.PI*2);
   ctx.fill();
 
-  /* Iris texture */
   ctx.strokeStyle = "rgba(0,0,0,0.25)";
   for(let i=0;i<60;i++){
     const a = (i/60)*Math.PI*2 + irisSpin;
@@ -186,33 +184,38 @@ function draw(){
 
   if(elapsed > 15 && Math.random() < 0.006){
     tears.push({
-      x: cx + eye.rotX * 35,
-      y: cy + eye.radius * 0.9,
-      vy: 0.05,
-      r: 7 + Math.random() * 3,
+      x: eye.x + eye.rotX * 35,
+      y: eye.y + eye.radius * 0.9,
+      vy: 0.04,
+      r: 8 + Math.random() * 3,
       attached: true
     });
   }
 
-  ctx.fillStyle = "rgba(180,220,255,0.7)";
+  ctx.fillStyle = "rgba(180,220,255,0.75)";
   tears.forEach(t=>{
     if(t.attached){
       t.y += t.vy;
-      if(t.y > cy + eye.radius + 10){
+      if(t.y > eye.y + eye.radius + 12){
         t.attached = false;
-        t.vy = 0.3;
+        t.vy = 0.35;
       }
     } else {
       t.y += t.vy;
-      t.vy += 0.01;
+      t.vy += 0.015;
 
-      if(t.y > h - 8){
-        splashes.push({
-          x: t.x,
-          y: h - 6,
-          r: 4,
-          life: 1
-        });
+      if(t.y > h - 10){
+        // splash particles
+        for(let i=0;i<6;i++){
+          splashParticles.push({
+            x: t.x,
+            y: h - 8,
+            vx: (Math.random()-0.5)*2,
+            vy: -Math.random()*1.5,
+            life: 1
+          });
+        }
+        ripples.push({ x:t.x, y:h-6, r:6, life:1 });
         t.dead = true;
       }
     }
@@ -223,20 +226,35 @@ function draw(){
     if(tears[i].dead) tears.splice(i,1);
   }
 
-  /* ---------- SPLASHES ---------- */
-  ctx.strokeStyle = "rgba(180,220,255,0.5)";
-  splashes.forEach(s=>{
-    s.r += 0.8;
-    s.life -= 0.03;
+  /* ---------- SPLASH PARTICLES ---------- */
+  ctx.fillStyle = "rgba(180,220,255,0.6)";
+  splashParticles.forEach(p=>{
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.05;
+    p.life -= 0.05;
+    ctx.fillRect(p.x, p.y, 2, 2);
+  });
 
+  for(let i=splashParticles.length-1;i>=0;i--){
+    if(splashParticles[i].life <= 0){
+      splashParticles.splice(i,1);
+    }
+  }
+
+  /* ---------- RIPPLE ---------- */
+  ctx.strokeStyle = "rgba(180,220,255,0.35)";
+  ripples.forEach(r=>{
+    r.r += 1.2;
+    r.life -= 0.03;
     ctx.beginPath();
-    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    ctx.ellipse(r.x, r.y, r.r * 1.6, r.r * 0.4, 0, 0, Math.PI*2);
     ctx.stroke();
   });
 
-  for(let i=splashes.length-1;i>=0;i--){
-    if(splashes[i].life <= 0){
-      splashes.splice(i,1);
+  for(let i=ripples.length-1;i>=0;i--){
+    if(ripples[i].life <= 0){
+      ripples.splice(i,1);
     }
   }
 
