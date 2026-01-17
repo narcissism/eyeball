@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Eyeball</title>
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #111;
+}
+canvas {
+  display: block;
+}
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+let w, h;
+function resize() {
+  w = canvas.width = window.innerWidth;
+  h = canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
+
+/* ---------- MOUSE ---------- */
+let mouse = { x: w / 2, y: h / 2 };
+window.addEventListener("mousemove", e => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+});
+
+/* ---------- EYEBALL ---------- */
+const eye = {
+  x: w / 2,
+  y: h / 2,
+  vx: 0,
+  vy: 0,
+  radius: 120,
+  irisRadius: 45,
+  pupilRadius: 18,
+  rollX: 0,
+  rollY: 0
+};
+
+/* ---------- BLOOD VESSELS ---------- */
+const vessels = [];
+for (let i = 0; i < 30; i++) {
+  vessels.push({
+    angle: Math.random() * Math.PI * 2,
+    length: 40 + Math.random() * 60,
+    wiggle: Math.random() * 0.5 + 0.2
+  });
+}
+
+/* ---------- DRAW EYEBALL ---------- */
+function drawEyeball() {
+  ctx.clearRect(0, 0, w, h);
+
+  // Movement toward mouse
+  const dx = mouse.x - eye.x;
+  const dy = mouse.y - eye.y;
+  eye.vx += dx * 0.002;
+  eye.vy += dy * 0.002;
+  eye.vx *= 0.92;
+  eye.vy *= 0.92;
+  eye.x += eye.vx;
+  eye.y += eye.vy;
+
+  // Rolling illusion
+  eye.rollX += eye.vx * 0.01;
+  eye.rollY += eye.vy * 0.01;
+
+  ctx.save();
+  ctx.translate(eye.x, eye.y);
+
+  /* ---------- SPHERE SHADING ---------- */
+  const grad = ctx.createRadialGradient(
+    -eye.radius * 0.3,
+    -eye.radius * 0.3,
+    eye.radius * 0.2,
+    0,
+    0,
+    eye.radius
+  );
+  grad.addColorStop(0, "#ffffff");
+  grad.addColorStop(1, "#d9d9d9");
+
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(0, 0, eye.radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  /* ---------- BLOOD VESSELS ---------- */
+  ctx.strokeStyle = "rgba(180,60,60,0.35)";
+  ctx.lineWidth = 1;
+  vessels.forEach(v => {
+    ctx.beginPath();
+    let a = v.angle + eye.rollX * 0.5;
+    let r = eye.radius * 0.9;
+    ctx.moveTo(
+      Math.cos(a) * r,
+      Math.sin(a) * r
+    );
+    for (let i = 0; i < 6; i++) {
+      r -= v.length / 6;
+      a += Math.sin(i + eye.rollY) * v.wiggle;
+      ctx.lineTo(
+        Math.cos(a) * r,
+        Math.sin(a) * r
+      );
+    }
+    ctx.stroke();
+  });
+
+  /* ---------- IRIS OFFSET ---------- */
+  const lookX = Math.max(-1, Math.min(1, dx / 300));
+  const lookY = Math.max(-1, Math.min(1, dy / 300));
+  const irisX = lookX * 20;
+  const irisY = lookY * 20;
+
+  /* ---------- IRIS (HAZEL) ---------- */
+  const irisGrad = ctx.createRadialGradient(
+    irisX - 10,
+    irisY - 10,
+    5,
+    irisX,
+    irisY,
+    eye.irisRadius
+  );
+  irisGrad.addColorStop(0, "#3b2a14");
+  irisGrad.addColorStop(0.4, "#6f4e2c");
+  irisGrad.addColorStop(0.8, "#9b7b3c");
+  irisGrad.addColorStop(1, "#2a1b0c");
+
+  ctx.fillStyle = irisGrad;
+  ctx.beginPath();
+  ctx.arc(irisX, irisY, eye.irisRadius, 0, Math.PI * 2);
+  ctx.fill();
+
+  /* ---------- IRIS TEXTURE ---------- */
+  ctx.strokeStyle = "rgba(0,0,0,0.2)";
+  for (let i = 0; i < 40; i++) {
+    const a = (i / 40) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(
+      irisX + Math.cos(a) * 5,
+      irisY + Math.sin(a) * 5
+    );
+    ctx.lineTo(
+      irisX + Math.cos(a) * eye.irisRadius,
+      irisY + Math.sin(a) * eye.irisRadius
+    );
+    ctx.stroke();
+  }
+
+  /* ---------- PUPIL ---------- */
+  ctx.fillStyle = "#000";
+  ctx.beginPath();
+  ctx.arc(irisX, irisY, eye.pupilRadius, 0, Math.PI * 2);
+  ctx.fill();
+
+  /* ---------- HIGHLIGHT ---------- */
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.beginPath();
+  ctx.arc(-eye.radius * 0.3, -eye.radius * 0.3, 15, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+
+  requestAnimationFrame(drawEyeball);
+}
+
+drawEyeball();
+</script>
+
+</body>
+</html>
