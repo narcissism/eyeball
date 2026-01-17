@@ -42,6 +42,8 @@ let time = 0;
 
 /* ---------- EYE ---------- */
 const eye = {
+  x: () => w/2,
+  y: () => h/2,
   radius: 120,
   irisRadius: 45,
   pupilRadius: 18,
@@ -61,15 +63,25 @@ const vessels = Array.from({length:28}, ()=>({
 
 /* ---------- TEARS ---------- */
 const tears = [];
-let puddleHeight = 0;
+const splashes = [];
+
+/* ---------- DRAW TEARDROP ---------- */
+function drawTear(x, y, r){
+  ctx.beginPath();
+  ctx.moveTo(x, y - r);
+  ctx.quadraticCurveTo(x - r, y, x, y + r * 1.6);
+  ctx.quadraticCurveTo(x + r, y, x, y - r);
+  ctx.closePath();
+  ctx.fill();
+}
 
 /* ---------- DRAW ---------- */
 function draw(){
   ctx.clearRect(0,0,w,h);
   time += 0.02;
 
-  const cx = w/2;
-  const cy = h/2;
+  const cx = eye.x();
+  const cy = eye.y();
 
   /* ---------- LOOK ROTATION ---------- */
   const dx = mouse.x - cx;
@@ -78,8 +90,8 @@ function draw(){
   const tx = Math.max(-1, Math.min(1, dx / 260));
   const ty = Math.max(-1, Math.min(1, dy / 260));
 
-  eye.rotX += (tx - eye.rotX) * 0.07;
-  eye.rotY += (ty - eye.rotY) * 0.07;
+  eye.rotX += (tx - eye.rotX) * 0.08;
+  eye.rotY += (ty - eye.rotY) * 0.08;
 
   /* ---------- PUPIL DILATION ---------- */
   const dist = Math.hypot(dx, dy);
@@ -96,11 +108,11 @@ function draw(){
   const lightY = -eye.rotY * eye.radius * 0.45;
 
   const scleraGrad = ctx.createRadialGradient(
-    lightX, lightY, eye.radius * 0.2,
+    lightX, lightY, eye.radius * 0.25,
     0,0, eye.radius
   );
   scleraGrad.addColorStop(0,"#fff");
-  scleraGrad.addColorStop(1,"#d6d6d6");
+  scleraGrad.addColorStop(1,"#d4d4d4");
 
   ctx.fillStyle = scleraGrad;
   ctx.beginPath();
@@ -115,36 +127,25 @@ function draw(){
     ctx.strokeStyle = `rgba(170,60,60,${0.2 * pulse})`;
     ctx.lineWidth = pulse;
 
-    let a = v.baseAngle + eye.rotX * 1.2;
+    let a = v.baseAngle;
     let r = eye.radius * 0.9;
 
     ctx.beginPath();
     ctx.moveTo(Math.cos(a)*r, Math.sin(a)*r);
     for(let i=0;i<6;i++){
       r -= (v.length * pulse) / 6;
-      a += Math.sin(i + eye.rotY * 4) * v.wiggle;
+      a += Math.sin(i + eye.rotX * 4) * v.wiggle;
       ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r);
     }
     ctx.stroke();
   });
 
-  /* ---------- SPHERICAL IRIS ROLL ---------- */
-  const maxRoll = eye.radius - eye.irisRadius - 6;
-  const rollX = eye.rotX * maxRoll;
-  const rollY = eye.rotY * maxRoll;
-  const rollDist = Math.hypot(rollX, rollY);
-  const rollNorm = Math.min(rollDist / maxRoll, 1);
-
-  const visibleIrisRadius =
-    eye.irisRadius * (1 - rollNorm * 0.18);
-
-  /* ---------- IRIS TEXTURE ---------- */
-  ctx.save();
-  ctx.translate(rollX, rollY);
+  /* ---------- IRIS ---------- */
+  const irisSpin = time * 0.15 + eye.rotX * 0.8;
 
   const irisGrad = ctx.createRadialGradient(
     -10, -10, 6,
-    0,0, visibleIrisRadius
+    0,0, eye.irisRadius
   );
   irisGrad.addColorStop(0,"#3a2715");
   irisGrad.addColorStop(0.45,"#6e4c2b");
@@ -153,36 +154,24 @@ function draw(){
 
   ctx.fillStyle = irisGrad;
   ctx.beginPath();
-  ctx.arc(0,0,visibleIrisRadius,0,Math.PI*2);
+  ctx.arc(0,0,eye.irisRadius,0,Math.PI*2);
   ctx.fill();
 
-  /* Iris fibers (rotating subtly) */
+  /* Iris texture */
   ctx.strokeStyle = "rgba(0,0,0,0.25)";
-  const fiberSpin = time * 0.15 + eye.rotX * 0.6;
   for(let i=0;i<60;i++){
-    const a = (i/60)*Math.PI*2 + fiberSpin;
+    const a = (i/60)*Math.PI*2 + irisSpin;
     ctx.beginPath();
     ctx.moveTo(Math.cos(a)*6, Math.sin(a)*6);
-    ctx.lineTo(
-      Math.cos(a)*visibleIrisRadius,
-      Math.sin(a)*visibleIrisRadius
-    );
+    ctx.lineTo(Math.cos(a)*eye.irisRadius, Math.sin(a)*eye.irisRadius);
     ctx.stroke();
   }
-
-  /* Edge darkening (spherical cue) */
-  ctx.fillStyle = `rgba(0,0,0,${rollNorm * 0.28})`;
-  ctx.beginPath();
-  ctx.arc(0,0,visibleIrisRadius,0,Math.PI*2);
-  ctx.fill();
 
   /* ---------- PUPIL ---------- */
   ctx.fillStyle = "#000";
   ctx.beginPath();
-  ctx.arc(0,0,eye.pupilRadius * (1 - rollNorm * 0.15),0,Math.PI*2);
+  ctx.arc(0,0,eye.pupilRadius,0,Math.PI*2);
   ctx.fill();
-
-  ctx.restore();
 
   /* ---------- HIGHLIGHT ---------- */
   ctx.fillStyle = "rgba(255,255,255,0.6)";
@@ -195,42 +184,60 @@ function draw(){
   /* ---------- TEARS ---------- */
   const elapsed = (performance.now() - startTime) / 1000;
 
-  if(elapsed > 15 && Math.random() < 0.008){
+  if(elapsed > 15 && Math.random() < 0.006){
     tears.push({
-      x: cx + eye.rotX * 40 + (Math.random()-0.5)*10,
+      x: cx + eye.rotX * 35,
       y: cy + eye.radius * 0.9,
       vy: 0.05,
-      r: 6 + Math.random() * 3,
+      r: 7 + Math.random() * 3,
       attached: true
     });
   }
 
-  ctx.fillStyle = "rgba(180,220,255,0.65)";
+  ctx.fillStyle = "rgba(180,220,255,0.7)";
   tears.forEach(t=>{
     if(t.attached){
       t.y += t.vy;
-      if(t.y > cy + eye.radius + 8){
+      if(t.y > cy + eye.radius + 10){
         t.attached = false;
-        t.vy = 0.25;
+        t.vy = 0.3;
       }
     } else {
       t.y += t.vy;
       t.vy += 0.01;
-      if(t.y > h - puddleHeight - 6){
-        puddleHeight += 0.015;
-        t.y = h - puddleHeight - 6;
+
+      if(t.y > h - 8){
+        splashes.push({
+          x: t.x,
+          y: h - 6,
+          r: 4,
+          life: 1
+        });
+        t.dead = true;
       }
     }
-
-    ctx.beginPath();
-    ctx.ellipse(t.x, t.y, t.r, t.r * 1.4, 0, 0, Math.PI*2);
-    ctx.fill();
+    drawTear(t.x, t.y, t.r);
   });
 
-  /* ---------- PUDDLE ---------- */
-  if(puddleHeight > 0){
-    ctx.fillStyle = "rgba(140,180,220,0.4)";
-    ctx.fillRect(0, h - puddleHeight, w, puddleHeight);
+  for(let i=tears.length-1;i>=0;i--){
+    if(tears[i].dead) tears.splice(i,1);
+  }
+
+  /* ---------- SPLASHES ---------- */
+  ctx.strokeStyle = "rgba(180,220,255,0.5)";
+  splashes.forEach(s=>{
+    s.r += 0.8;
+    s.life -= 0.03;
+
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    ctx.stroke();
+  });
+
+  for(let i=splashes.length-1;i>=0;i--){
+    if(splashes[i].life <= 0){
+      splashes.splice(i,1);
+    }
   }
 
   requestAnimationFrame(draw);
