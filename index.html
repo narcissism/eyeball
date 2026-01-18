@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>3D Eyeball with Curved Iris</title>
+<title>3D Eyeball with Curved Iris & Sliding Tears</title>
 <style>
 html, body { margin:0; padding:0; overflow:hidden; background:#111; }
 canvas { display:block; }
@@ -17,10 +17,10 @@ let w,h;
 function resize(){ w=canvas.width=window.innerWidth; h=canvas.height=window.innerHeight; }
 window.addEventListener("resize", resize); resize();
 
-let mouse={x:w/2, y:h/2};
+let mouse={x:w/2,y:h/2};
 window.addEventListener("mousemove", e=>{ mouse.x=e.clientX; mouse.y=e.clientY; });
 
-let startTime=performance.now();
+let startTime = performance.now();
 let time=0;
 
 const eye={
@@ -34,14 +34,14 @@ const eye={
 const tears=[];
 const splashes=[];
 
-// 3D to 2D projection with simple perspective
+// 3D to 2D projection
 function project(x,y,z){
     const fov=500;
     const scale=fov/(fov+z);
-    return { x: x*scale + w/2, y: y*scale + h/2, scale };
+    return {x: x*scale + w/2, y: y*scale + h/2, scale};
 }
 
-// Draw teardrop shape
+// Teardrop shape
 function drawTear(x,y,r){
     ctx.beginPath();
     ctx.moveTo(x, y - r*1.6);
@@ -59,71 +59,104 @@ function drawSplash(s){
     ctx.fill();
 }
 
-function draw(){
-    ctx.clearRect(0,0,w,h);
-    time+=0.02;
-
-    // Eye rotation from mouse
-    const dx=mouse.x - w/2;
-    const dy=mouse.y - h/2;
-    eye.rotX += ((dy/300) - eye.rotX)*0.08;
-    eye.rotY += ((dx/300) - eye.rotY)*0.08;
-
-    const cx=w/2, cy=h/2;
-
-    // --- Sclera ---
-    const scleraGrad=ctx.createRadialGradient(cx - eye.rotY*eye.radius*0.2, cy - eye.rotX*eye.radius*0.2, eye.radius*0.2, cx, cy, eye.radius);
-    scleraGrad.addColorStop(0,"#fff");
-    scleraGrad.addColorStop(1,"#d4d4d4");
-    ctx.fillStyle=scleraGrad;
-    ctx.beginPath();
-    ctx.arc(cx,cy,eye.radius,0,Math.PI*2);
-    ctx.fill();
-
-    // --- Iris & pupil projected onto sphere ---
-    const segments=60; // number of points to draw the iris surface
+// Draw iris mapped onto sphere
+function drawIris(cx,cy,rotX,rotY){
+    const segments=40;
     const irisPoints=[];
     for(let i=0;i<=segments;i++){
         const angle=i/segments*Math.PI*2;
-        const r=eye.irisRadius*Math.sin(angle); 
-        const phi=angle;
-        // spherical coordinates relative to sphere front
-        let x=r*Math.cos(phi);
-        let y=r*Math.sin(phi);
-        let z=Math.sqrt(eye.irisRadius*eye.irisRadius - x*x - y*y); // points on hemisphere
-        // rotate according to eye rotation
-        let y1=y*Math.cos(eye.rotX)-z*Math.sin(eye.rotX);
-        let z1=y*Math.sin(eye.rotX)+z*Math.cos(eye.rotX);
+        const r=eye.irisRadius*Math.sin(angle);
+        let x=r*Math.cos(angle);
+        let y=r*Math.sin(angle);
+        let z=Math.sqrt(eye.irisRadius*eye.irisRadius - x*x - y*y);
+        // Rotate
+        let y1 = y*Math.cos(rotX) - z*Math.sin(rotX);
+        let z1 = y*Math.sin(rotX) + z*Math.cos(rotX);
         y=y1; z=z1;
-        let x1=x*Math.cos(eye.rotY)+z*Math.sin(eye.rotY);
-        let z2=-x*Math.sin(eye.rotY)+z*Math.cos(eye.rotY);
+        let x1 = x*Math.cos(rotY) + z*Math.sin(rotY);
+        let z2 = -x*Math.sin(rotY) + z*Math.cos(rotY);
         x=x1; z=z2;
-        irisPoints.push(project(x,y,z));
+        irisPoints.push(project(x,y,z2));
     }
 
-    // Draw iris by connecting points with gradient fill
+    // Create radial gradient for iris texture
+    const grad=ctx.createRadialGradient(cx,cy,6,cx,cy,eye.irisRadius);
+    grad.addColorStop(0,"#3a2715");
+    grad.addColorStop(0.45,"#6e4c2b");
+    grad.addColorStop(0.8,"#9c7a3c");
+    grad.addColorStop(1,"#1c1208");
+    ctx.fillStyle=grad;
+
     ctx.beginPath();
     for(let i=0;i<irisPoints.length;i++){
         if(i===0) ctx.moveTo(irisPoints[i].x, irisPoints[i].y);
         else ctx.lineTo(irisPoints[i].x, irisPoints[i].y);
     }
     ctx.closePath();
-    const irisGrad=ctx.createRadialGradient(cx, cy, eye.irisRadius*0.3, cx, cy, eye.irisRadius);
-    irisGrad.addColorStop(0,"#3a2715");
-    irisGrad.addColorStop(0.45,"#6e4c2b");
-    irisGrad.addColorStop(0.8,"#9c7a3c");
-    irisGrad.addColorStop(1,"#1c1208");
-    ctx.fillStyle=irisGrad;
     ctx.fill();
 
-    // pupil as circle projected on front
-    const pupilX=cx + eye.rotY*eye.radius*0.2;
-    const pupilY=cy + eye.rotX*eye.radius*0.2;
+    // Pupil
+    const pupilX = cx + rotY*eye.radius*0.2;
+    const pupilY = cy + rotX*eye.radius*0.2;
     ctx.fillStyle="#000";
     ctx.beginPath();
-    ctx.arc(pupilX, pupilY, eye.pupilRadius,0,Math.PI*2);
+    ctx.arc(pupilX,pupilY,eye.pupilRadius,0,Math.PI*2);
     ctx.fill();
 
-    // highlight
+    return {x:pupilX, y:pupilY};
+}
+
+function draw(){
+    ctx.clearRect(0,0,w,h);
+    time+=0.02;
+
+    const cx=w/2, cy=h/2;
+
+    // Rotate eyeball with mouse
+    const dx = mouse.x - cx;
+    const dy = mouse.y - cy;
+    eye.rotX += ((dy/300)-eye.rotX)*0.08;
+    eye.rotY += ((dx/300)-eye.rotY)*0.08;
+
+    // Sclera gradient
+    const tiltX = eye.rotY*eye.radius*0.2;
+    const tiltY = eye.rotX*eye.radius*0.2;
+    const scleraGrad = ctx.createRadialGradient(cx-tiltX,cy-tiltY,eye.radius*0.2,cx,cy,eye.radius);
+    scleraGrad.addColorStop(0,"#fff");
+    scleraGrad.addColorStop(1,"#d4d4d4");
+    ctx.fillStyle = scleraGrad;
+    ctx.beginPath();
+    ctx.arc(cx,cy,eye.radius,0,Math.PI*2);
+    ctx.fill();
+
+    // Draw iris & pupil mapped on sphere
+    const pupilPos = drawIris(cx,cy,eye.rotX,eye.rotY);
+
+    // Highlight
     ctx.fillStyle="rgba(255,255,255,0.6)";
-    ctx.beginPat
+    ctx.beginPath();
+    ctx.arc(cx-15, cy-15,14,0,Math.PI*2);
+    ctx.fill();
+
+    // Tears
+    const elapsed=(performance.now()-startTime)/1000;
+    if(elapsed>5 && Math.random()<0.008){
+        tears.push({
+            theta:0, // angle along sphere
+            rDist: eye.irisRadius*0.7,
+            rotX:eye.rotX,
+            rotY:eye.rotY,
+            vy:0.3+Math.random()*0.2,
+            r:6+Math.random()*2,
+            attached:true,
+            attachTime: performance.now()
+        });
+    }
+
+    ctx.fillStyle="rgba(180,220,255,0.75)";
+    for(let t of tears){
+        // compute tear position along sphere before falling
+        if(t.attached){
+            t.theta += 0.01; // slide along sphere
+            const x = t.rDist*Math.sin(t.theta);
+            const y = t.rDist*Math.cos(t.theta)*
