@@ -18,4 +18,70 @@ function resize(){ w=canvas.width=window.innerWidth; h=canvas.height=window.inne
 window.addEventListener("resize", resize); resize();
 
 let mouse={x:w/2,y:h/2};
-window.a
+window.addEventListener("mousemove", e=>{ mouse.x=e.clientX; mouse.y=e.clientY; });
+
+const eye={
+    radius:120,
+    irisRadius:45,
+    pupilRadius:18,
+    rotX:0,
+    rotY:0
+};
+
+function draw(){
+    ctx.clearRect(0,0,w,h);
+
+    const cx=w/2, cy=h/2;
+
+    // --- Eye rotation from mouse ---
+    const dx = mouse.x - cx;
+    const dy = mouse.y - cy;
+    eye.rotX += ((dy/300) - eye.rotX)*0.08;
+    eye.rotY += ((dx/300) - eye.rotY)*0.08;
+
+    // --- Sclera (sphere) ---
+    const tiltX = eye.rotY*eye.radius*0.25;
+    const tiltY = eye.rotX*eye.radius*0.25;
+    const scleraGrad = ctx.createRadialGradient(cx-tiltX, cy-tiltY, eye.radius*0.2, cx, cy, eye.radius);
+    scleraGrad.addColorStop(0,"#fff");
+    scleraGrad.addColorStop(1,"#d4d4d4");
+    ctx.fillStyle = scleraGrad;
+    ctx.beginPath();
+    ctx.arc(cx,cy,eye.radius,0,Math.PI*2);
+    ctx.fill();
+
+    // --- Iris (foreshortened with rotation) ---
+    const scaleY = 1 - Math.abs(eye.rotX)*0.5; // vertical compression
+    ctx.save();
+    ctx.translate(cx + eye.rotY*eye.radius*0.25, cy + eye.rotX*eye.radius*0.25);
+    ctx.scale(1, scaleY);
+    const irisGrad = ctx.createRadialGradient(0,0,6,0,0,eye.irisRadius);
+    irisGrad.addColorStop(0,"#3a2715");
+    irisGrad.addColorStop(0.45,"#6e4c2b");
+    irisGrad.addColorStop(0.8,"#9c7a3c");
+    irisGrad.addColorStop(1,"#1c1208");
+    ctx.fillStyle = irisGrad;
+    ctx.beginPath();
+    ctx.arc(0,0,eye.irisRadius,0,Math.PI*2);
+    ctx.fill();
+
+    // --- Pupil ---
+    ctx.fillStyle="#000";
+    ctx.beginPath();
+    ctx.arc(0,0,eye.pupilRadius,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+
+    // --- Highlight ---
+    ctx.fillStyle="rgba(255,255,255,0.6)";
+    ctx.beginPath();
+    ctx.arc(cx-15, cy-15,14,0,Math.PI*2);
+    ctx.fill();
+
+    requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
