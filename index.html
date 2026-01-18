@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Eyeball</title>
+<title>Rotating Eyeball</title>
 <style>
 html, body {
   margin: 0;
@@ -42,8 +42,6 @@ let time = 0;
 
 /* ---------- EYE ---------- */
 const eye = {
-  x: w/2,
-  y: h/2,
   radius: 120,
   irisRadius: 45,
   pupilRadius: 18,
@@ -69,9 +67,20 @@ const ripples = [];
 /* ---------- TEARDROP SHAPE ---------- */
 function drawTear(x, y, r){
   ctx.beginPath();
-  ctx.moveTo(x, y - r * 1.2);                // pointed top
-  ctx.quadraticCurveTo(x - r * 0.6, y, x, y + r * 1.6);
-  ctx.quadraticCurveTo(x + r * 0.6, y, x, y - r * 1.2);
+  ctx.moveTo(x, y - r * 1.4);
+
+  ctx.bezierCurveTo(
+    x - r * 0.4, y - r * 0.6,
+    x - r * 0.7, y + r * 0.3,
+    x,           y + r * 1.6
+  );
+
+  ctx.bezierCurveTo(
+    x + r * 0.7, y + r * 0.3,
+    x + r * 0.4, y - r * 0.6,
+    x,           y - r * 1.4
+  );
+
   ctx.closePath();
   ctx.fill();
 }
@@ -81,26 +90,25 @@ function draw(){
   ctx.clearRect(0,0,w,h);
   time += 0.02;
 
-  /* ---------- EYE TRANSLATION (FOLLOW MOUSE) ---------- */
-  const tx = mouse.x - w/2;
-  const ty = mouse.y - h/2;
+  const cx = w / 2;
+  const cy = h / 2;
 
-  eye.x += (w/2 + tx * 0.12 - eye.x) * 0.05;
-  eye.y += (h/2 + ty * 0.12 - eye.y) * 0.05;
+  /* ---------- ROTATION ONLY ---------- */
+  const dx = mouse.x - cx;
+  const dy = mouse.y - cy;
 
-  /* ---------- EYE ROTATION ---------- */
-  eye.rotX += ((tx / 260) - eye.rotX) * 0.08;
-  eye.rotY += ((ty / 260) - eye.rotY) * 0.08;
+  eye.rotX += ((dx / 260) - eye.rotX) * 0.08;
+  eye.rotY += ((dy / 260) - eye.rotY) * 0.08;
 
   /* ---------- PUPIL ---------- */
-  const dist = Math.hypot(tx, ty);
+  const dist = Math.hypot(dx, dy);
   const norm = Math.min(dist / 420, 1);
   const targetPupil =
     eye.maxPupil - norm * (eye.maxPupil - eye.minPupil);
   eye.pupilRadius += (targetPupil - eye.pupilRadius) * 0.08;
 
   ctx.save();
-  ctx.translate(eye.x, eye.y);
+  ctx.translate(cx, cy);
 
   /* ---------- SPHERE ---------- */
   const lightX = -eye.rotX * eye.radius * 0.45;
@@ -184,8 +192,8 @@ function draw(){
 
   if(elapsed > 15 && Math.random() < 0.006){
     tears.push({
-      x: eye.x + eye.rotX * 35,
-      y: eye.y + eye.radius * 0.9,
+      x: cx + eye.rotX * 35,
+      y: cy + eye.radius * 0.9,
       vy: 0.04,
       r: 8 + Math.random() * 3,
       attached: true
@@ -196,7 +204,7 @@ function draw(){
   tears.forEach(t=>{
     if(t.attached){
       t.y += t.vy;
-      if(t.y > eye.y + eye.radius + 12){
+      if(t.y > cy + eye.radius + 12){
         t.attached = false;
         t.vy = 0.35;
       }
@@ -205,7 +213,6 @@ function draw(){
       t.vy += 0.015;
 
       if(t.y > h - 10){
-        // splash particles
         for(let i=0;i<6;i++){
           splashParticles.push({
             x: t.x,
@@ -226,7 +233,7 @@ function draw(){
     if(tears[i].dead) tears.splice(i,1);
   }
 
-  /* ---------- SPLASH PARTICLES ---------- */
+  /* ---------- SPLASH ---------- */
   ctx.fillStyle = "rgba(180,220,255,0.6)";
   splashParticles.forEach(p=>{
     p.x += p.vx;
