@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>3D Eyeball with Tears</title>
+<title>3D Eyeball with Curved Iris</title>
 <style>
 html, body { margin:0; padding:0; overflow:hidden; background:#111; }
 canvas { display:block; }
@@ -17,7 +17,7 @@ let w,h;
 function resize(){ w=canvas.width=window.innerWidth; h=canvas.height=window.innerHeight; }
 window.addEventListener("resize", resize); resize();
 
-let mouse={x:w/2,y:h/2};
+let mouse={x:w/2, y:h/2};
 window.addEventListener("mousemove", e=>{ mouse.x=e.clientX; mouse.y=e.clientY; });
 
 let startTime=performance.now();
@@ -34,7 +34,14 @@ const eye={
 const tears=[];
 const splashes=[];
 
-// Teardrop shape
+// 3D to 2D projection with simple perspective
+function project(x,y,z){
+    const fov=500;
+    const scale=fov/(fov+z);
+    return { x: x*scale + w/2, y: y*scale + h/2, scale };
+}
+
+// Draw teardrop shape
 function drawTear(x,y,r){
     ctx.beginPath();
     ctx.moveTo(x, y - r*1.6);
@@ -44,7 +51,7 @@ function drawTear(x,y,r){
     ctx.fill();
 }
 
-// Splash
+// Splash particle
 function drawSplash(s){
     ctx.fillStyle="rgba(180,220,255,"+s.alpha+")";
     ctx.beginPath();
@@ -56,7 +63,7 @@ function draw(){
     ctx.clearRect(0,0,w,h);
     time+=0.02;
 
-    // Eye rotation based on mouse
+    // Eye rotation from mouse
     const dx=mouse.x - w/2;
     const dy=mouse.y - h/2;
     eye.rotX += ((dy/300) - eye.rotX)*0.08;
@@ -64,88 +71,59 @@ function draw(){
 
     const cx=w/2, cy=h/2;
 
-    // --- Draw sclera as tilted gradient circle ---
-    const tiltX = eye.rotX*eye.radius*0.4;
-    const tiltY = eye.rotY*eye.radius*0.4;
-    const scleraGrad = ctx.createRadialGradient(cx-tiltX, cy-tiltY, eye.radius*0.2, cx, cy, eye.radius);
+    // --- Sclera ---
+    const scleraGrad=ctx.createRadialGradient(cx - eye.rotY*eye.radius*0.2, cy - eye.rotX*eye.radius*0.2, eye.radius*0.2, cx, cy, eye.radius);
     scleraGrad.addColorStop(0,"#fff");
     scleraGrad.addColorStop(1,"#d4d4d4");
     ctx.fillStyle=scleraGrad;
     ctx.beginPath();
-    ctx.arc(cx, cy, eye.radius, 0, Math.PI*2);
+    ctx.arc(cx,cy,eye.radius,0,Math.PI*2);
     ctx.fill();
 
-    // --- Draw iris and pupil on the sphere ---
-    const irisX = cx + eye.rotY*eye.radius*0.4;
-    const irisY = cy + eye.rotX*eye.radius*0.4;
-    const irisGrad = ctx.createRadialGradient(irisX-5, irisY-5,6, irisX, irisY, eye.irisRadius);
+    // --- Iris & pupil projected onto sphere ---
+    const segments=60; // number of points to draw the iris surface
+    const irisPoints=[];
+    for(let i=0;i<=segments;i++){
+        const angle=i/segments*Math.PI*2;
+        const r=eye.irisRadius*Math.sin(angle); 
+        const phi=angle;
+        // spherical coordinates relative to sphere front
+        let x=r*Math.cos(phi);
+        let y=r*Math.sin(phi);
+        let z=Math.sqrt(eye.irisRadius*eye.irisRadius - x*x - y*y); // points on hemisphere
+        // rotate according to eye rotation
+        let y1=y*Math.cos(eye.rotX)-z*Math.sin(eye.rotX);
+        let z1=y*Math.sin(eye.rotX)+z*Math.cos(eye.rotX);
+        y=y1; z=z1;
+        let x1=x*Math.cos(eye.rotY)+z*Math.sin(eye.rotY);
+        let z2=-x*Math.sin(eye.rotY)+z*Math.cos(eye.rotY);
+        x=x1; z=z2;
+        irisPoints.push(project(x,y,z));
+    }
+
+    // Draw iris by connecting points with gradient fill
+    ctx.beginPath();
+    for(let i=0;i<irisPoints.length;i++){
+        if(i===0) ctx.moveTo(irisPoints[i].x, irisPoints[i].y);
+        else ctx.lineTo(irisPoints[i].x, irisPoints[i].y);
+    }
+    ctx.closePath();
+    const irisGrad=ctx.createRadialGradient(cx, cy, eye.irisRadius*0.3, cx, cy, eye.irisRadius);
     irisGrad.addColorStop(0,"#3a2715");
     irisGrad.addColorStop(0.45,"#6e4c2b");
     irisGrad.addColorStop(0.8,"#9c7a3c");
     irisGrad.addColorStop(1,"#1c1208");
     ctx.fillStyle=irisGrad;
-    ctx.beginPath();
-    ctx.arc(irisX, irisY, eye.irisRadius,0,Math.PI*2);
     ctx.fill();
 
-    // pupil
+    // pupil as circle projected on front
+    const pupilX=cx + eye.rotY*eye.radius*0.2;
+    const pupilY=cy + eye.rotX*eye.radius*0.2;
     ctx.fillStyle="#000";
     ctx.beginPath();
-    ctx.arc(irisX, irisY, eye.pupilRadius,0,Math.PI*2);
+    ctx.arc(pupilX, pupilY, eye.pupilRadius,0,Math.PI*2);
     ctx.fill();
 
     // highlight
     ctx.fillStyle="rgba(255,255,255,0.6)";
-    ctx.beginPath();
-    ctx.arc(cx-15, cy-15,14,0,Math.PI*2);
-    ctx.fill();
-
-    // --- Tears ---
-    const elapsed=(performance.now()-startTime)/1000;
-    if(elapsed>5 && Math.random()<0.008){
-        tears.push({
-            x: irisX,
-            y: irisY + eye.irisRadius*0.7,
-            vy:0.5 + Math.random()*0.3,
-            r:6 + Math.random()*2,
-            attached:true,
-            attachTime: performance.now()
-        });
-    }
-
-    ctx.fillStyle="rgba(180,220,255,0.75)";
-    for(let t of tears){
-        if(t.attached){
-            t.y += t.vy*0.1;
-            if(performance.now()-t.attachTime>2000) t.attached=false;
-        } else {
-            t.y += t.vy;
-            t.vy += 0.03;
-            if(t.y>h-10){
-                for(let k=0;k<6;k++){
-                    splashes.push({x:t.x, y:h-8, vx:(Math.random()-0.5)*2, vy:-Math.random()*2, r:1+Math.random()*2, alpha:1});
-                }
-                t.dead=true;
-            }
-        }
-        drawTear(t.x,t.y,t.r);
-    }
-    for(let i=tears.length-1;i>=0;i--) if(tears[i].dead) tears.splice(i,1);
-
-    // --- Splash particles ---
-    for(let s of splashes){
-        s.x += s.vx;
-        s.y += s.vy;
-        s.vy += 0.05;
-        s.alpha -= 0.04;
-        drawSplash(s);
-    }
-    for(let i=splashes.length-1;i>=0;i--) if(splashes[i].alpha<=0) splashes.splice(i,1);
-
-    requestAnimationFrame(draw);
-}
-
-draw();
-</script>
-</body>
-</html>
+    ctx.beginPat
