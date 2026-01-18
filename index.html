@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Eyeball</title>
+<title>3D Rotating Eyeball</title>
 <style>
 html, body { margin: 0; padding: 0; overflow: hidden; background: #111; }
 canvas { display: block; }
@@ -34,4 +34,126 @@ const eye = {
 };
 
 /* ---------- TEARS ---------- */
-con
+const tears = [];
+
+/* ---------- 3D TO 2D PROJECTION ---------- */
+function project(x, y, z) {
+  const scale = 1.2;
+  const px = x * scale + w/2;
+  const py = y * scale + h/2;
+  return { x: px, y: py };
+}
+
+/* ---------- DRAW TEARDROP ---------- */
+function drawTear(x, y, r){
+  ctx.beginPath();
+  ctx.moveTo(x, y - r * 1.4);
+  ctx.bezierCurveTo(x - r * 0.4, y - r * 0.6, x - r * 0.7, y + r * 0.3, x, y + r * 1.6);
+  ctx.bezierCurveTo(x + r * 0.7, y + r * 0.3, x + r * 0.4, y - r * 0.6, x, y - r * 1.4);
+  ctx.closePath();
+  ctx.fill();
+}
+
+/* ---------- DRAW ---------- */
+function draw() {
+  ctx.clearRect(0, 0, w, h);
+  time += 0.02;
+
+  // --- Eye rotation based on mouse ---
+  const dx = mouse.x - w/2;
+  const dy = mouse.y - h/2;
+  eye.rotX += ((dy / 300) - eye.rotX) * 0.08;
+  eye.rotY += ((dx / 300) - eye.rotY) * 0.08;
+
+  // --- Draw 3D sphere (sclera) ---
+  const segments = 60;
+  for(let i=0; i<segments; i++){
+    const theta = i/segments*Math.PI;
+    for(let j=0; j<segments*2; j++){
+      const phi = j/(segments*2)*Math.PI*2;
+      // Sphere coordinates
+      let x = eye.radius * Math.sin(theta) * Math.cos(phi);
+      let y = eye.radius * Math.sin(theta) * Math.sin(phi);
+      let z = eye.radius * Math.cos(theta);
+      // Apply rotation X
+      let y1 = y*Math.cos(eye.rotX) - z*Math.sin(eye.rotX);
+      let z1 = y*Math.sin(eye.rotX) + z*Math.cos(eye.rotX);
+      y = y1; z = z1;
+      // Apply rotation Y
+      let x1 = x*Math.cos(eye.rotY) + z*Math.sin(eye.rotY);
+      let z2 = -x*Math.sin(eye.rotY) + z*Math.cos(eye.rotY);
+      x = x1; z = z2;
+      // Simple shading based on z
+      const brightness = 0.9 + 0.1*(z2/eye.radius);
+      const color = `rgb(${255*brightness},${255*brightness},${255*brightness})`;
+      const p = project(x, y, z2);
+      ctx.fillStyle = color;
+      ctx.fillRect(p.x, p.y, 1.5, 1.5);
+    }
+  }
+
+  // --- Draw iris and pupil on rotated sphere ---
+  const irisAngleX = eye.rotX;
+  const irisAngleY = eye.rotY;
+  const irisDistance = eye.radius - 5;
+  const irisX = irisDistance * Math.sin(irisAngleY);
+  const irisY = irisDistance * Math.sin(irisAngleX);
+  const irisZ = irisDistance * Math.cos(irisAngleX) * Math.cos(irisAngleY);
+  const irisProj = project(irisX, irisY, irisZ);
+  const irisGrad = ctx.createRadialGradient(irisProj.x-5, irisProj.y-5, 6, irisProj.x, irisProj.y, eye.irisRadius);
+  irisGrad.addColorStop(0,"#3a2715");
+  irisGrad.addColorStop(0.45,"#6e4c2b");
+  irisGrad.addColorStop(0.8,"#9c7a3c");
+  irisGrad.addColorStop(1,"#1c1208");
+  ctx.fillStyle = irisGrad;
+  ctx.beginPath();
+  ctx.arc(irisProj.x, irisProj.y, eye.irisRadius,0,Math.PI*2);
+  ctx.fill();
+
+  // pupil
+  ctx.fillStyle = "#000";
+  ctx.beginPath();
+  ctx.arc(irisProj.x, irisProj.y, eye.pupilRadius, 0, Math.PI*2);
+  ctx.fill();
+
+  // highlight
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.beginPath();
+  ctx.arc(irisProj.x-15, irisProj.y-15, 14,0,Math.PI*2);
+  ctx.fill();
+
+  // --- TEARS ---
+  const elapsed = (performance.now()-startTime)/1000;
+  if(elapsed>5 && Math.random()<0.008){
+    tears.push({
+      x: irisProj.x,
+      y: irisProj.y + eye.irisRadius*0.7,
+      vy: 0.5 + Math.random()*0.3,
+      r: 6 + Math.random()*3,
+      attached: true,
+      attachTime: performance.now()
+    });
+  }
+
+  ctx.fillStyle = "rgba(180,220,255,0.75)";
+  for(let t of tears){
+    if(t.attached){
+      t.y += t.vy*0.1;
+      if(performance.now()-t.attachTime>2000) t.attached=false;
+    } else {
+      t.y += t.vy;
+      t.vy += 0.02;
+      if(t.y>h-10) t.dead=true;
+    }
+    drawTear(t.x, t.y, t.r);
+  }
+
+  for(let i=tears.length-1;i>=0;i--) if(tears[i].dead) tears.splice(i,1);
+
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
