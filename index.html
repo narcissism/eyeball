@@ -2,127 +2,34 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Eyeball</title>
+<title>3D Rotating Eyeball</title>
 <style>
-html, body { margin:0; padding:0; overflow:hidden; background:#111; }
-canvas { display:block; }
+  body { margin:0; overflow:hidden; background:#111; }
+  canvas { display:block; }
 </style>
 </head>
 <body>
-<canvas id="canvas"></canvas>
+<!-- Load Three.js from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.155.0/build/three.min.js"></script>
 <script>
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-let w,h;
-function resize(){ w=canvas.width=window.innerWidth; h=canvas.height=window.innerHeight; }
-window.addEventListener("resize", resize); resize();
+  // --- Scene setup ---
+  const scene = new THREE.Scene();
 
-let mouse={x:w/2, y:h/2};
-window.addEventListener("mousemove", e=>{ mouse.x=e.clientX; mouse.y=e.clientY; });
+  // Camera
+  const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
+  camera.position.z = 4;
 
-const eye = {
-    radius: 120,
-    irisRadius: 45,
-    pupilRadius: 18,
-    rotX:0,
-    rotY:0
-};
+  // Renderer
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
 
-// 3D -> 2D projection
-function project(x,y,z){
-    const fov=500;
-    const scale=fov/(fov+z);
-    return {x:x*scale + w/2, y:y*scale + h/2};
-}
+  // Resize handler
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
 
-// Draw sclera
-function drawSclera(cx,cy){
-    const tiltX = eye.rotY*eye.radius*0.25;
-    const tiltY = eye.rotX*eye.radius*0.25;
-    const grad = ctx.createRadialGradient(cx-tiltX, cy-tiltY, eye.radius*0.2, cx, cy, eye.radius);
-    grad.addColorStop(0,"#fff");
-    grad.addColorStop(1,"#d4d4d4");
-    ctx.fillStyle=grad;
-    ctx.beginPath();
-    ctx.arc(cx,cy,eye.radius,0,Math.PI*2);
-    ctx.fill();
-}
-
-// Draw iris mapped onto the sphere
-function drawIris(cx,cy){
-    const segments = 50;
-    const irisPoints3D = [];
-    for(let i=0;i<segments;i++){
-        const theta = (i/segments)*Math.PI*2;
-        const r = eye.irisRadius;
-        // Points on a small hemisphere patch in front of the sphere
-        let x = r*Math.cos(theta);
-        let y = r*Math.sin(theta);
-        let z = Math.sqrt(Math.max(r*r - x*x - y*y,0));
-
-        // rotate around X
-        let y1 = y*Math.cos(eye.rotX) - z*Math.sin(eye.rotX);
-        let z1 = y*Math.sin(eye.rotX) + z*Math.cos(eye.rotX);
-        y=y1; z=z1;
-
-        // rotate around Y
-        let x1 = x*Math.cos(eye.rotY) + z*Math.sin(eye.rotY);
-        let z2 = -x*Math.sin(eye.rotY) + z*Math.cos(eye.rotY);
-        x=x1; z=z2;
-
-        irisPoints3D.push(project(x + 0, y + 0, z2));
-    }
-
-    // Draw iris shape
-    ctx.beginPath();
-    for(let i=0;i<irisPoints3D.length;i++){
-        if(i===0) ctx.moveTo(irisPoints3D[i].x, irisPoints3D[i].y);
-        else ctx.lineTo(irisPoints3D[i].x, irisPoints3D[i].y);
-    }
-    ctx.closePath();
-
-    // Radial gradient for texture
-    const grad = ctx.createRadialGradient(w/2 + eye.rotY*eye.radius*0.25, h/2 + eye.rotX*eye.radius*0.25, 6,
-                                          w/2 + eye.rotY*eye.radius*0.25, h/2 + eye.rotX*eye.radius*0.25, eye.irisRadius);
-    grad.addColorStop(0,"#3a2715");
-    grad.addColorStop(0.45,"#6e4c2b");
-    grad.addColorStop(0.8,"#9c7a3c");
-    grad.addColorStop(1,"#1c1208");
-    ctx.fillStyle = grad;
-    ctx.fill();
-
-    // Draw pupil at center
-    const pupilX = w/2 + eye.rotY*eye.radius*0.25;
-    const pupilY = h/2 + eye.rotX*eye.radius*0.25;
-    ctx.fillStyle="#000";
-    ctx.beginPath();
-    ctx.arc(pupilX,pupilY,eye.pupilRadius,0,Math.PI*2);
-    ctx.fill();
-}
-
-function draw(){
-    ctx.clearRect(0,0,w,h);
-    const cx=w/2, cy=h/2;
-
-    // Rotate with mouse
-    const dx = mouse.x - cx;
-    const dy = mouse.y - cy;
-    eye.rotX += ((dy/300)-eye.rotX)*0.08;
-    eye.rotY += ((dx/300)-eye.rotY)*0.08;
-
-    drawSclera(cx,cy);
-    drawIris(cx,cy);
-
-    // Highlight
-    ctx.fillStyle="rgba(255,255,255,0.6)";
-    ctx.beginPath();
-    ctx.arc(cx-15,cy-15,14,0,Math.PI*2);
-    ctx.fill();
-
-    requestAnimationFrame(draw);
-}
-
-draw();
-</script>
-</body>
-</html>
+  // --- Lighting ---
+  const light = new THREE.PointLight(0xffffff, 1);
