@@ -48,7 +48,8 @@ const eye = {
   minPupil: 10,
   maxPupil: 28,
   rotX: 0,
-  rotY: 0
+  rotY: 0,
+  sphereAngle: 0
 };
 
 /* ---------- VEINS ---------- */
@@ -59,7 +60,7 @@ const vessels = Array.from({length:28}, ()=>({
   phase: Math.random() * Math.PI * 2
 }));
 
-/* ---------- TEARS & SPLASH ---------- */
+/* ---------- TEARS ---------- */
 const tears = [];
 const splashParticles = [];
 const ripples = [];
@@ -93,183 +94,12 @@ function draw(){
   const cx = w / 2;
   const cy = h / 2;
 
-  /* ---------- ROTATION ONLY ---------- */
+  /* ---------- ROTATION ---------- */
   const dx = mouse.x - cx;
   const dy = mouse.y - cy;
 
   eye.rotX += ((dx / 260) - eye.rotX) * 0.08;
   eye.rotY += ((dy / 260) - eye.rotY) * 0.08;
+  eye.sphereAngle += 0.015; // full eyeball slowly rotates
 
-  /* ---------- PUPIL ---------- */
-  const dist = Math.hypot(dx, dy);
-  const norm = Math.min(dist / 420, 1);
-  const targetPupil =
-    eye.maxPupil - norm * (eye.maxPupil - eye.minPupil);
-  eye.pupilRadius += (targetPupil - eye.pupilRadius) * 0.08;
-
-  ctx.save();
-  ctx.translate(cx, cy);
-
-  /* ---------- SPHERE ---------- */
-  const lightX = -eye.rotX * eye.radius * 0.45;
-  const lightY = -eye.rotY * eye.radius * 0.45;
-
-  const scleraGrad = ctx.createRadialGradient(
-    lightX, lightY, eye.radius * 0.25,
-    0,0, eye.radius
-  );
-  scleraGrad.addColorStop(0,"#fff");
-  scleraGrad.addColorStop(1,"#d4d4d4");
-
-  ctx.fillStyle = scleraGrad;
-  ctx.beginPath();
-  ctx.arc(0,0,eye.radius,0,Math.PI*2);
-  ctx.fill();
-
-  /* ---------- VEINS ---------- */
-  vessels.forEach(v=>{
-    v.phase += 0.015;
-    const pulse = Math.sin(v.phase + time) * 0.35 + 1;
-
-    ctx.strokeStyle = `rgba(170,60,60,${0.2 * pulse})`;
-    ctx.lineWidth = pulse;
-
-    let a = v.baseAngle;
-    let r = eye.radius * 0.9;
-
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(a)*r, Math.sin(a)*r);
-    for(let i=0;i<6;i++){
-      r -= (v.length * pulse) / 6;
-      a += Math.sin(i + eye.rotX * 4) * v.wiggle;
-      ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r);
-    }
-    ctx.stroke();
-  });
-
-  /* ---------- IRIS ---------- */
-  const irisSpin = time * 0.15 + eye.rotX * 0.8;
-
-  const irisGrad = ctx.createRadialGradient(
-    -10, -10, 6,
-    0,0, eye.irisRadius
-  );
-  irisGrad.addColorStop(0,"#3a2715");
-  irisGrad.addColorStop(0.45,"#6e4c2b");
-  irisGrad.addColorStop(0.8,"#9c7a3c");
-  irisGrad.addColorStop(1,"#1c1208");
-
-  ctx.fillStyle = irisGrad;
-  ctx.beginPath();
-  ctx.arc(0,0,eye.irisRadius,0,Math.PI*2);
-  ctx.fill();
-
-  ctx.strokeStyle = "rgba(0,0,0,0.25)";
-  for(let i=0;i<60;i++){
-    const a = (i/60)*Math.PI*2 + irisSpin;
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(a)*6, Math.sin(a)*6);
-    ctx.lineTo(Math.cos(a)*eye.irisRadius, Math.sin(a)*eye.irisRadius);
-    ctx.stroke();
-  }
-
-  /* ---------- PUPIL ---------- */
-  ctx.fillStyle = "#000";
-  ctx.beginPath();
-  ctx.arc(0,0,eye.pupilRadius,0,Math.PI*2);
-  ctx.fill();
-
-  /* ---------- HIGHLIGHT ---------- */
-  ctx.fillStyle = "rgba(255,255,255,0.6)";
-  ctx.beginPath();
-  ctx.arc(lightX - 15, lightY - 15, 14, 0, Math.PI*2);
-  ctx.fill();
-
-  ctx.restore();
-
-  /* ---------- TEARS ---------- */
-  const elapsed = (performance.now() - startTime) / 1000;
-
-  if(elapsed > 15 && Math.random() < 0.006){
-    tears.push({
-      x: cx + eye.rotX * 35,
-      y: cy + eye.radius * 0.9,
-      vy: 0.04,
-      r: 8 + Math.random() * 3,
-      attached: true
-    });
-  }
-
-  ctx.fillStyle = "rgba(180,220,255,0.75)";
-  tears.forEach(t=>{
-    if(t.attached){
-      t.y += t.vy;
-      if(t.y > cy + eye.radius + 12){
-        t.attached = false;
-        t.vy = 0.35;
-      }
-    } else {
-      t.y += t.vy;
-      t.vy += 0.015;
-
-      if(t.y > h - 10){
-        for(let i=0;i<6;i++){
-          splashParticles.push({
-            x: t.x,
-            y: h - 8,
-            vx: (Math.random()-0.5)*2,
-            vy: -Math.random()*1.5,
-            life: 1
-          });
-        }
-        ripples.push({ x:t.x, y:h-6, r:6, life:1 });
-        t.dead = true;
-      }
-    }
-    drawTear(t.x, t.y, t.r);
-  });
-
-  for(let i=tears.length-1;i>=0;i--){
-    if(tears[i].dead) tears.splice(i,1);
-  }
-
-  /* ---------- SPLASH ---------- */
-  ctx.fillStyle = "rgba(180,220,255,0.6)";
-  splashParticles.forEach(p=>{
-    p.x += p.vx;
-    p.y += p.vy;
-    p.vy += 0.05;
-    p.life -= 0.05;
-    ctx.fillRect(p.x, p.y, 2, 2);
-  });
-
-  for(let i=splashParticles.length-1;i>=0;i--){
-    if(splashParticles[i].life <= 0){
-      splashParticles.splice(i,1);
-    }
-  }
-
-  /* ---------- RIPPLE ---------- */
-  ctx.strokeStyle = "rgba(180,220,255,0.35)";
-  ripples.forEach(r=>{
-    r.r += 1.2;
-    r.life -= 0.03;
-    ctx.beginPath();
-    ctx.ellipse(r.x, r.y, r.r * 1.6, r.r * 0.4, 0, 0, Math.PI*2);
-    ctx.stroke();
-  });
-
-  for(let i=ripples.length-1;i>=0;i--){
-    if(ripples[i].life <= 0){
-      ripples.splice(i,1);
-    }
-  }
-
-  requestAnimationFrame(draw);
-}
-
-draw();
-</script>
-
-</body>
-</html>
+  /* ---------- PUPIL SIZE ---------- */
