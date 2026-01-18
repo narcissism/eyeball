@@ -48,8 +48,7 @@ const eye = {
   minPupil: 10,
   maxPupil: 28,
   rotX: 0,
-  rotY: 0,
-  sphereAngle: 0
+  rotY: 0
 };
 
 /* ---------- VEINS ---------- */
@@ -78,28 +77,4 @@ function drawTear(x, y, r){
 
   ctx.bezierCurveTo(
     x + r * 0.7, y + r * 0.3,
-    x + r * 0.4, y - r * 0.6,
-    x,           y - r * 1.4
-  );
-
-  ctx.closePath();
-  ctx.fill();
-}
-
-/* ---------- DRAW ---------- */
-function draw(){
-  ctx.clearRect(0,0,w,h);
-  time += 0.02;
-
-  const cx = w / 2;
-  const cy = h / 2;
-
-  /* ---------- ROTATION ---------- */
-  const dx = mouse.x - cx;
-  const dy = mouse.y - cy;
-
-  eye.rotX += ((dx / 260) - eye.rotX) * 0.08;
-  eye.rotY += ((dy / 260) - eye.rotY) * 0.08;
-  eye.sphereAngle += 0.015; // full eyeball slowly rotates
-
-  /* ---------- PUPIL SIZE ---------- */
+    x + r * 0.*
