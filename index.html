@@ -2,13 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Stable 3D Eyeball</title>
+<title>Eyeball (Safe Version)</title>
 <style>
   body { margin:0; overflow:hidden; background:#000; }
 </style>
 </head>
 <body>
 
+<!-- SAME CDN THAT WORKED -->
 <script src="https://unpkg.com/three@0.155.0/build/three.min.js"></script>
 
 <script>
@@ -16,23 +17,109 @@
 const scene = new THREE.Scene();
 
 /* ---------- CAMERA ---------- */
-const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(
+  45,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  100
+);
 camera.position.z = 3;
 
 /* ---------- RENDERER ---------- */
 const renderer = new THREE.WebGLRenderer({ antialias:true });
-renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-/* ---------- LIGHT ---------- */
+/* ---------- LIGHTING ---------- */
 scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
 const light = new THREE.DirectionalLight(0xffffff, 0.9);
 light.position.set(3, 3, 4);
 scene.add(light);
 
-/* ---------- TEXTURE ---------- */
-const size = 1024;
-const canvas = document.createElement("canvas");
-canvas.width = canvas.height = size;
-const ctx =
+/* ---------- TEXTURE (CANVAS) ---------- */
+const texCanvas = document.createElement("canvas");
+texCanvas.width = 512;
+texCanvas.height = 512;
+const ctx = texCanvas.getContext("2d");
+
+/* sclera base */
+ctx.fillStyle = "#f2f2f2";
+ctx.fillRect(0, 0, 512, 512);
+
+/* subtle spherical shading */
+const shade = ctx.createRadialGradient(180, 180, 60, 256, 256, 280);
+shade.addColorStop(0, "#ffffff");
+shade.addColorStop(1, "#d6d6d6");
+ctx.fillStyle = shade;
+ctx.fillRect(0, 0, 512, 512);
+
+/* iris — CENTER (same place the 8 was) */
+const irisX = 256;
+const irisY = 256;
+const irisR = 90;
+
+const irisGrad = ctx.createRadialGradient(
+  irisX, irisY, 10,
+  irisX, irisY, irisR
+);
+irisGrad.addColorStop(0, "#2a7fa3");
+irisGrad.addColorStop(1, "#0b2f3d");
+
+ctx.fillStyle = irisGrad;
+ctx.beginPath();
+ctx.arc(irisX, irisY, irisR, 0, Math.PI * 2);
+ctx.fill();
+
+/* pupil */
+ctx.fillStyle = "#000";
+ctx.beginPath();
+ctx.arc(irisX, irisY, 35, 0, Math.PI * 2);
+ctx.fill();
+
+/* create texture — SAME AS 8-BALL */
+const texture = new THREE.CanvasTexture(texCanvas);
+
+/* ---------- EYEBALL MESH ---------- */
+const geometry = new THREE.SphereGeometry(1, 64, 64);
+const material = new THREE.MeshStandardMaterial({
+  map: texture,
+  roughness: 0.4,
+  metalness: 0.05
+});
+
+const eyeball = new THREE.Mesh(geometry, material);
+scene.add(eyeball);
+
+/* ---------- MOUSE ROTATION (UNCHANGED) ---------- */
+let targetX = 0;
+let targetY = 0;
+
+window.addEventListener("mousemove", e => {
+  targetX = (e.clientX / window.innerWidth - 0.5) * Math.PI;
+  targetY = (e.clientY / window.innerHeight - 0.5) * Math.PI;
+});
+
+/* ---------- RESIZE ---------- */
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* ---------- ANIMATE (UNCHANGED) ---------- */
+function animate() {
+  requestAnimationFrame(animate);
+
+  eyeball.rotation.y += (targetX - eyeball.rotation.y) * 0.08;
+  eyeball.rotation.x += (targetY - eyeball.rotation.x) * 0.08;
+
+  renderer.render(scene, camera);
+}
+
+animate();
+</script>
+
+</body>
+</html>
