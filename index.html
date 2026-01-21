@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Three.js Test</title>
+<title>3D 8 Ball</title>
 <style>
   body { margin:0; overflow:hidden; background:#000; }
 </style>
 </head>
 <body>
 
-<!-- DIFFERENT CDN (unpkg, not jsdelivr) -->
+<!-- Three.js (same CDN that worked) -->
 <script src="https://unpkg.com/three@0.155.0/build/three.min.js"></script>
 
 <script>
@@ -18,44 +18,19 @@ if (typeof THREE === "undefined") {
   throw new Error("THREE.js not loaded");
 }
 
-/* ---------- BASIC SCENE ---------- */
+/* ---------- SCENE ---------- */
 const scene = new THREE.Scene();
 
+/* ---------- CAMERA ---------- */
 const camera = new THREE.PerspectiveCamera(
-  60,
+  45,
   window.innerWidth / window.innerHeight,
   0.1,
   100
 );
 camera.position.z = 3;
 
+/* ---------- RENDERER ---------- */
 const renderer = new THREE.WebGLRenderer({ antialias:true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
-
-/* ---------- LIGHT ---------- */
-scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-
-const light = new THREE.DirectionalLight(0xffffff, 0.8);
-light.position.set(2,2,2);
-scene.add(light);
-
-/* ---------- CUBE ---------- */
-const geometry = new THREE.BoxGeometry();
-const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-const cube = new THREE.Mesh(geometry, material);
-scene.add(cube);
-
-/* ---------- ANIMATE ---------- */
-function animate() {
-  requestAnimationFrame(animate);
-  cube.rotation.x += 0.01;
-  cube.rotation.y += 0.01;
-  renderer.render(scene, camera);
-}
-
-animate();
-</script>
-
-</body>
-</html>
+renderer.setPixelRatio(w
