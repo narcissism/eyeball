@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Eyeball Facing Cursor</title>
+<title>Eyeball</title>
 <style>
   body { margin:0; overflow:hidden; background:#000; }
 </style>
@@ -16,112 +16,102 @@
 const scene = new THREE.Scene();
 
 /* ---------- CAMERA ---------- */
-const camera = new THREE.PerspectiveCamera(
-  45,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  100
-);
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
 camera.position.z = 3;
 
 /* ---------- RENDERER ---------- */
-const renderer = new THREE.WebGLRenderer({ antialias:true });
+const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-/* ---------- LIGHTING ---------- */
+/* ---------- LIGHT ---------- */
 scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-
 const light = new THREE.DirectionalLight(0xffffff, 0.9);
-light.position.set(3, 3, 4);
+light.position.set(3,3,4);
 scene.add(light);
 
-/* ---------- TEXTURE (CANVAS) ---------- */
-const texCanvas = document.createElement("canvas");
-texCanvas.width = 512;
-texCanvas.height = 512;
-const ctx = texCanvas.getContext("2d");
+/* ---------- EYEBALL TEXTURE ---------- */
+const size = 512;
+const canvas = document.createElement("canvas");
+canvas.width = canvas.height = size;
+const ctx = canvas.getContext("2d");
 
-/* sclera base */
+/* sclera */
 ctx.fillStyle = "#f2f2f2";
-ctx.fillRect(0, 0, 512, 512);
-
-/* subtle spherical shading */
-const shade = ctx.createRadialGradient(180, 180, 60, 256, 256, 280);
-shade.addColorStop(0, "#ffffff");
-shade.addColorStop(1, "#d6d6d6");
+ctx.fillRect(0,0,size,size);
+const shade = ctx.createRadialGradient(180,180,60,256,256,280);
+shade.addColorStop(0,"#ffffff");
+shade.addColorStop(1,"#d6d6d6");
 ctx.fillStyle = shade;
-ctx.fillRect(0, 0, 512, 512);
+ctx.fillRect(0,0,size,size);
 
-/* iris — CENTER (same place the 8 was) */
-const irisX = 256;
-const irisY = 256;
-const irisR = 90;
-
-const irisGrad = ctx.createRadialGradient(
-  irisX, irisY, 10,
-  irisX, irisY, irisR
-);
-irisGrad.addColorStop(0, "#2a7fa3");
-irisGrad.addColorStop(1, "#0b2f3d");
-
+/* iris */
+const irisX = 256, irisY = 256, irisR = 90;
+const irisGrad = ctx.createRadialGradient(irisX, irisY, 10, irisX, irisY, irisR);
+irisGrad.addColorStop(0,"#2a7fa3");
+irisGrad.addColorStop(1,"#0b2f3d");
 ctx.fillStyle = irisGrad;
 ctx.beginPath();
-ctx.arc(irisX, irisY, irisR, 0, Math.PI * 2);
+ctx.arc(irisX, irisY, irisR, 0, Math.PI*2);
 ctx.fill();
 
 /* pupil */
 ctx.fillStyle = "#000";
 ctx.beginPath();
-ctx.arc(irisX, irisY, 35, 0, Math.PI * 2);
+ctx.arc(irisX, irisY, 35, 0, Math.PI*2);
 ctx.fill();
 
-/* create texture — SAME AS 8-BALL */
-const texture = new THREE.CanvasTexture(texCanvas);
+const texture = new THREE.CanvasTexture(canvas);
 
-/* ---------- EYEBALL MESH ---------- */
-const geometry = new THREE.SphereGeometry(1, 64, 64);
-const material = new THREE.MeshStandardMaterial({
-  map: texture,
-  roughness: 0.4,
-  metalness: 0.05
-});
+/* ---------- EYEBALL ---------- */
+const eye = new THREE.Mesh(
+  new THREE.SphereGeometry(1, 64, 64),
+  new THREE.MeshStandardMaterial({
+    map: texture,
+    roughness: 0.4,
+    metalness: 0.05
+  })
+);
+scene.add(eye);
 
-const eyeball = new THREE.Mesh(geometry, material);
-scene.add(eyeball);
-
-/* ---------- MOUSE-TRACKING ROTATION ---------- */
-let targetYaw = 0;
-let targetPitch = 0;
-
+/* ---------- MOUSE TARGET ---------- */
+const mouse = new THREE.Vector2();
 window.addEventListener("mousemove", e => {
-  const nx = (e.clientX / window.innerWidth) * 2 - 1;
-  const ny = (e.clientY / window.innerHeight) * 2 - 1;
-
-  // yaw = left/right, pitch = up/down
-  targetYaw = nx * Math.PI * 0.35;
-  targetPitch = -ny * Math.PI * 0.25;
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
 });
 
 /* ---------- RESIZE ---------- */
 window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.aspect = window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
 /* ---------- ANIMATE ---------- */
-function animate() {
+const target = new THREE.Vector3();
+const tempVec = new THREE.Vector3();
+function animate(){
   requestAnimationFrame(animate);
 
-  // smooth eye movement toward target angles
-  eyeball.rotation.y += (targetYaw - eyeball.rotation.y) * 0.08;
-  eyeball.rotation.x += (targetPitch - eyeball.rotation.x) * 0.08;
+  // project mouse into world space
+  target.set(mouse.x, mouse.y, 0.5);
+  target.unproject(camera);
 
-  renderer.render(scene, camera);
+  // direction vector from eye to target
+  tempVec.copy(target).sub(eye.position).normalize();
+
+  // convert to a quaternion looking in that direction
+  const q = new THREE.Quaternion().setFromUnitVectors(
+    new THREE.Vector3(0,0,1), tempVec
+  );
+
+  // smooth interpolation
+  eye.quaternion.slerp(q, 0.08);
+
+  renderer.render(scene,camera);
 }
-
 animate();
 </script>
 
