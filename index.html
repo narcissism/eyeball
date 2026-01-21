@@ -24,8 +24,8 @@ renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
 // LIGHT
-scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-const light = new THREE.DirectionalLight(0xffffff, 0.9);
+scene.add(new THREE.AmbientLight(0xffffff,0.5));
+const light = new THREE.DirectionalLight(0xffffff,0.9);
 light.position.set(3,3,4);
 scene.add(light);
 
@@ -69,6 +69,9 @@ const eye = new THREE.Mesh(
 );
 scene.add(eye);
 
+// START FACING FORWARD
+eye.rotation.set(0,0,0);
+
 // MOUSE
 const mouse = new THREE.Vector2();
 window.addEventListener("mousemove", e=>{
@@ -84,23 +87,22 @@ window.addEventListener("resize", ()=>{
 });
 
 // ANIMATE
-const target = new THREE.Vector3();
 function animate(){
     requestAnimationFrame(animate);
 
     // Raycast to the z=0 plane where the eyeball lives
-    target.set(mouse.x, mouse.y, 0.5);
-    target.unproject(camera);  // converts from NDC to world space
+    const target = new THREE.Vector3(mouse.x, mouse.y, 0.5);
+    target.unproject(camera);
 
-    // Compute direction from eye center to the target
+    // Direction from eye to target
     const dir = new THREE.Vector3().subVectors(target, eye.position).normalize();
 
-    // Constrain rotation to a limited range so the eye behaves naturally
-    const maxAngle = Math.PI/4;
+    // Compute yaw and pitch
+    const maxAngle = Math.PI/4; // limit rotation so it looks natural
     const yaw = Math.atan2(dir.x, dir.z);
     const pitch = Math.asin(dir.y);
 
-    // smooth rotation toward cursor
+    // Smooth rotation toward cursor
     eye.rotation.y += (THREE.MathUtils.clamp(yaw, -maxAngle, maxAngle) - eye.rotation.y) * 0.08;
     eye.rotation.x += (THREE.MathUtils.clamp(pitch, -maxAngle, maxAngle) - eye.rotation.x) * 0.08;
 
