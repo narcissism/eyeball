@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Eyeball</title>
+<title>Stable 3D Eyeball</title>
 <style>
   body { margin:0; overflow:hidden; background:#000; }
 </style>
@@ -25,23 +25,23 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-/* ---------- LIGHTING ---------- */
+/* ---------- LIGHT ---------- */
 scene.add(new THREE.AmbientLight(0xffffff, 0.45));
 const light = new THREE.DirectionalLight(0xffffff, 0.9);
 light.position.set(3, 3, 4);
 scene.add(light);
 
-/* ---------- EYEBALL TEXTURE ---------- */
+/* ---------- TEXTURE ---------- */
 const size = 1024;
-const canvas = document.createElement("canvas");
-canvas.width = canvas.height = size;
-const ctx = canvas.getContext("2d");
+const c = document.createElement("canvas");
+c.width = c.height = size;
+const ctx = c.getContext("2d");
 
-/* sclera */
+// sclera
 ctx.fillStyle = "#f3f3f3";
 ctx.fillRect(0, 0, size, size);
 
-/* spherical shading */
+// shading
 const shade = ctx.createRadialGradient(
   size * 0.35, size * 0.35, size * 0.15,
   size * 0.5, size * 0.5, size * 0.55
@@ -51,12 +51,11 @@ shade.addColorStop(1, "#d0d0d0");
 ctx.fillStyle = shade;
 ctx.fillRect(0, 0, size, size);
 
-/* iris placed on EQUATOR (important) */
-const irisX = size * 0.75;   // equator horizontally
+// iris on equator
+const irisX = size * 0.75;
 const irisY = size * 0.5;
 const irisR = 170;
 
-/* iris gradient */
 const irisGrad = ctx.createRadialGradient(
   irisX, irisY, 20,
   irisX, irisY, irisR
@@ -69,11 +68,53 @@ ctx.beginPath();
 ctx.arc(irisX, irisY, irisR, 0, Math.PI * 2);
 ctx.fill();
 
-/* iris fibers */
-ctx.strokeStyle = "rgba(255,255,255,0.08)";
-for (let i = 0; i < 120; i++) {
-  const a = Math.random() * Math.PI * 2;
-  ctx.beginPath();
-  ctx.moveTo(
-    irisX + Math.cos(a) * 25,
-    irisY + Math.
+// pupil
+ctx.fillStyle = "#000";
+ctx.beginPath();
+ctx.arc(irisX, irisY, 65, 0, Math.PI * 2);
+ctx.fill();
+
+const texture = new THREE.CanvasTexture(c);
+
+/* ---------- EYEBALL ---------- */
+const eye = new THREE.Mesh(
+  new THREE.SphereGeometry(1, 96, 96),
+  new THREE.MeshStandardMaterial({
+    map: texture,
+    roughness: 0.45,
+    metalness: 0.05
+  })
+);
+scene.add(eye);
+
+/* ---------- MOUSE ---------- */
+let mouseX = 0;
+let mouseY = 0;
+
+addEventListener("mousemove", e => {
+  mouseX = (e.clientX / innerWidth - 0.5) * Math.PI * 0.6;
+  mouseY = (e.clientY / innerHeight - 0.5) * Math.PI * 0.6;
+});
+
+/* ---------- RESIZE ---------- */
+addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ---------- ANIMATE ---------- */
+function animate() {
+  requestAnimationFrame(animate);
+
+  // smooth, safe rotation
+  eye.rotation.y += (mouseX - eye.rotation.y) * 0.08;
+  eye.rotation.x += (mouseY - eye.rotation.x) * 0.08;
+
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+
+</body>
+</html>
