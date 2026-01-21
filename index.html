@@ -2,71 +2,60 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>3D 8 Ball</title>
+<title>Three.js Test</title>
 <style>
-  body {
-    margin: 0;
-    overflow: hidden;
-    background: #111;
-  }
+  body { margin:0; overflow:hidden; background:#000; }
 </style>
 </head>
 <body>
 
-<!-- Load Three.js -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.155.0/build/three.min.js"></script>
+<!-- DIFFERENT CDN (unpkg, not jsdelivr) -->
+<script src="https://unpkg.com/three@0.155.0/build/three.min.js"></script>
 
 <script>
-/* ---------------- SCENE SETUP ---------------- */
+if (typeof THREE === "undefined") {
+  alert("THREE.js failed to load");
+  throw new Error("THREE.js not loaded");
+}
+
+/* ---------- BASIC SCENE ---------- */
 const scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(
-  45,
+  60,
   window.innerWidth / window.innerHeight,
   0.1,
   100
 );
-camera.position.z = 4;
+camera.position.z = 3;
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias:true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-/* ---------------- LIGHTING ---------------- */
-scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+/* ---------- LIGHT ---------- */
+scene.add(new THREE.AmbientLight(0xffffff, 0.6));
 
-const light = new THREE.PointLight(0xffffff, 1);
-light.position.set(5, 5, 5);
+const light = new THREE.DirectionalLight(0xffffff, 0.8);
+light.position.set(2,2,2);
 scene.add(light);
 
-/* ---------------- 8 BALL TEXTURE ---------------- */
-const texCanvas = document.createElement("canvas");
-texCanvas.width = 512;
-texCanvas.height = 512;
-const tctx = texCanvas.getContext("2d");
+/* ---------- CUBE ---------- */
+const geometry = new THREE.BoxGeometry();
+const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+const cube = new THREE.Mesh(geometry, material);
+scene.add(cube);
 
-// black base
-tctx.fillStyle = "#000";
-tctx.fillRect(0, 0, 512, 512);
+/* ---------- ANIMATE ---------- */
+function animate() {
+  requestAnimationFrame(animate);
+  cube.rotation.x += 0.01;
+  cube.rotation.y += 0.01;
+  renderer.render(scene, camera);
+}
 
-// white circle
-tctx.fillStyle = "#fff";
-tctx.beginPath();
-tctx.arc(256, 256, 110, 0, Math.PI * 2);
-tctx.fill();
+animate();
+</script>
 
-// number 8
-tctx.fillStyle = "#000";
-tctx.font = "bold 160px Arial";
-tctx.textAlign = "center";
-tctx.textBaseline = "middle";
-tctx.fillText("8", 256, 270);
-
-const texture = new THREE.CanvasTexture(texCanvas);
-
-/* ---------------- BALL ---------------- */
-const geometry = new THREE.SphereGeometry(1, 64, 64);
-const material = new THREE.MeshPhongMaterial({
-  map: texture,
-  shininess
+</body>
+</html>
