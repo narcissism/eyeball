@@ -2,14 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Eyeball (Safe Version)</title>
+<title>Eyeball Facing Cursor</title>
 <style>
   body { margin:0; overflow:hidden; background:#000; }
 </style>
 </head>
 <body>
 
-<!-- SAME CDN THAT WORKED -->
 <script src="https://unpkg.com/three@0.155.0/build/three.min.js"></script>
 
 <script>
@@ -92,13 +91,17 @@ const material = new THREE.MeshStandardMaterial({
 const eyeball = new THREE.Mesh(geometry, material);
 scene.add(eyeball);
 
-/* ---------- MOUSE ROTATION (UNCHANGED) ---------- */
-let targetX = 0;
-let targetY = 0;
+/* ---------- MOUSE-TRACKING ROTATION ---------- */
+let targetYaw = 0;
+let targetPitch = 0;
 
 window.addEventListener("mousemove", e => {
-  targetX = (e.clientX / window.innerWidth - 0.5) * Math.PI;
-  targetY = (e.clientY / window.innerHeight - 0.5) * Math.PI;
+  const nx = (e.clientX / window.innerWidth) * 2 - 1;
+  const ny = (e.clientY / window.innerHeight) * 2 - 1;
+
+  // yaw = left/right, pitch = up/down
+  targetYaw = nx * Math.PI * 0.35;
+  targetPitch = -ny * Math.PI * 0.25;
 });
 
 /* ---------- RESIZE ---------- */
@@ -108,12 +111,13 @@ window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-/* ---------- ANIMATE (UNCHANGED) ---------- */
+/* ---------- ANIMATE ---------- */
 function animate() {
   requestAnimationFrame(animate);
 
-  eyeball.rotation.y += (targetX - eyeball.rotation.y) * 0.08;
-  eyeball.rotation.x += (targetY - eyeball.rotation.x) * 0.08;
+  // smooth eye movement toward target angles
+  eyeball.rotation.y += (targetYaw - eyeball.rotation.y) * 0.08;
+  eyeball.rotation.x += (targetPitch - eyeball.rotation.x) * 0.08;
 
   renderer.render(scene, camera);
 }
