@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Eyeball Cursor LookAt</title>
+<title>Eyeball Cursor Tracking</title>
 <style>
 body { margin:0; overflow:hidden; background:#000; }
 </style>
@@ -12,7 +12,7 @@ body { margin:0; overflow:hidden; background:#000; }
 <script src="https://unpkg.com/three@0.155.0/build/three.min.js"></script>
 
 <script>
-// SCENE + CAMERA
+// SCENE
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
 camera.position.z = 3;
@@ -24,12 +24,12 @@ renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
 // LIGHT
-scene.add(new THREE.AmbientLight(0xffffff,0.5));
-const light = new THREE.DirectionalLight(0xffffff,0.9);
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+const light = new THREE.DirectionalLight(0xffffff, 0.9);
 light.position.set(3,3,4);
 scene.add(light);
 
-// TEXTURE
+// EYEBALL TEXTURE
 const size = 512;
 const canvas = document.createElement("canvas");
 canvas.width = canvas.height = size;
@@ -70,7 +70,7 @@ const eye = new THREE.Mesh(
 scene.add(eye);
 
 // MOUSE
-const mouse = new THREE.Vector2(0,0);
+const mouse = new THREE.Vector2();
 window.addEventListener("mousemove", e=>{
     mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -88,18 +88,21 @@ const target = new THREE.Vector3();
 function animate(){
     requestAnimationFrame(animate);
 
-    // project mouse to world space
-    target.set(mouse.x, mouse.y, 0.5).unproject(camera);
+    // Raycast to the z=0 plane where the eyeball lives
+    target.set(mouse.x, mouse.y, 0.5);
+    target.unproject(camera);  // converts from NDC to world space
 
-    // compute direction vector
+    // Compute direction from eye center to the target
     const dir = new THREE.Vector3().subVectors(target, eye.position).normalize();
 
-    // compute lookAt quaternion
-    const m = new THREE.Matrix4().lookAt(eye.position, target, new THREE.Vector3(0,1,0));
-    const q = new THREE.Quaternion().setFromRotationMatrix(m);
+    // Constrain rotation to a limited range so the eye behaves naturally
+    const maxAngle = Math.PI/4;
+    const yaw = Math.atan2(dir.x, dir.z);
+    const pitch = Math.asin(dir.y);
 
-    // smooth interpolation
-    eye.quaternion.slerp(q,0.08);
+    // smooth rotation toward cursor
+    eye.rotation.y += (THREE.MathUtils.clamp(yaw, -maxAngle, maxAngle) - eye.rotation.y) * 0.08;
+    eye.rotation.x += (THREE.MathUtils.clamp(pitch, -maxAngle, maxAngle) - eye.rotation.x) * 0.08;
 
     renderer.render(scene,camera);
 }
